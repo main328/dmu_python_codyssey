@@ -1,6 +1,6 @@
 # 출력 결과를 시간의 역순으로 정렬해 출력.
 try:
-    with open('codyssey001/mission_computer_main.log', 'r', encoding='utf-8') as log_file:
+    with open('mission001/mission_computer_main.log', 'r', encoding='utf-8') as log_file:
         log_lines = log_file.readlines()
         header_line = log_lines[0]
         body_line = log_lines[1:]
@@ -21,7 +21,7 @@ except Exception as error:
 
 #출력 결과 중 문제가 되는 부분만 따로 파일로 저장.
 try:
-    with open('codyssey001/bonus_error_line.log', 'w', encoding='utf-8') as error_log_file:
+    with open('mission001/bonus_error_line.log', 'w', encoding='utf-8') as error_log_file:
         error_log_file.write(header_line)
         error_log_file.write(body_line_rev[0])
         error_log_file.write(body_line_rev[1])
