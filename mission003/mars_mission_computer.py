@@ -1,7 +1,7 @@
 # log 파일의 경로.
-LOG_PATH = 'mission003/dummy_sensor_values.log'
-# 환경 변수명.
+LOG_PATH = 'dummy_sensor_values.log'
 
+# 환경 변수명.
 IN_TEMP = 'mars_base_internal_temperature'
 EX_TEMP = 'mars_base_external_temperature'
 HUMIDITY = 'mars_base_internal_humidity'
@@ -98,7 +98,7 @@ class DummySensor:
     
     # 측정 시간 및 간격으로 반복 실행.
     def increment_time(self, duration, interval):
-        for _ in range(duration):
+        for _ in range(duration // interval):
             self.set_env()
             self.get_env()
             self.__second += interval
