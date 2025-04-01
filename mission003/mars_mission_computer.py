@@ -1,5 +1,5 @@
 # log 파일의 경로.
-LOG_PATH = 'dummy_sensor_values.log'
+LOG_PATH = 'mission003/dummy_sensor_values.log'
 
 # 환경 변수명.
 IN_TEMP = 'mars_base_internal_temperature'
