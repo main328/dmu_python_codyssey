@@ -16,7 +16,7 @@ class DummySensor:
     # DummySensor 클래스 초기화.
     def __init__(self):
         # 화성 기지의 내부, 외부의 온도, 습도, 광량, 이산화탄소 농도, 산소 농도 초기화.
-        self.__env_values = {
+        self._env_values = {
             IN_TEMP: 0.0,
             EX_TEMP: 0.0,
             HUMIDITY: 0.0,
@@ -25,7 +25,7 @@ class DummySensor:
             OXYGEN: 0.0
         }
         # 화성 기지의 환경 값의 더미 데이터 생성을 위한 범위 값 지정.
-        self.__env_ranges = {
+        self._env_ranges = {
             IN_TEMP: (18, 30),
             EX_TEMP: (0, 21),
             HUMIDITY: (50, 60),
@@ -35,15 +35,15 @@ class DummySensor:
         }
 
         # 날짜 및 시간 초기화.
-        self.__year = 2023 
-        self.__month = 8
-        self.__day = 27
-        self.__hour = 12
-        self.__minute = 0
-        self.__second = 0
+        self._year = 2023 
+        self._month = 8
+        self._day = 27
+        self._hour = 12
+        self._minute = 0
+        self._second = 0
 
         # log 파일 초기화.
-        self.__init_log()
+        self._init_log()
 
     # 각 변수에 주어진 범위 내의 랜덤 값 설정(random.uniform 사용).
     def set_env(self):
@@ -54,7 +54,7 @@ class DummySensor:
     # 랜덤 값으로 설정된 변수를 반환.
     def get_env(self):
         # timestamp 생성.
-        timestamp = self.set_timestamp()
+        timestamp = self._set_timestamp()
         # 환경 값을 로그로 변환.
         log_entity = f'{timestamp},' + ','.join(f'{value:.2f}' for value in self.__env_values.values()) + '\n'
         
@@ -75,7 +75,7 @@ class DummySensor:
         return self.__env_values
     
     # 환경값을 저장하는 log 파일 초기화.
-    def __init_log(self):
+    def _init_log(self):
         try:
             with open(LOG_PATH, 'a', encoding='utf-8') as log:
                 # 최초 파일 생성 시 헤더 생성.
@@ -93,12 +93,12 @@ class DummySensor:
             print('ERROR: 알 수 없는 오류가 발생: ', error)
 
     # timestamp를 YYYY-MM-DD HH:MM:SS 형식으로 반환.
-    def set_timestamp(self):
+    def _set_timestamp(self):
         return f'{self.__year:04}-{self.__month:02}-{self.__day:02} {self.__hour:02}:{self.__minute:02}:{self.__second:02}'
     
     # 측정 시간 및 간격으로 반복 실행.
-    def increment_time(self, duration, interval):
-        for _ in range(duration // interval):
+    def _increment_time(self, duration, interval):
+        for _ in range(duration // interval):   
             self.set_env()
             self.get_env()
             self.__second += interval
@@ -107,7 +107,7 @@ class DummySensor:
         print('----로그 파일 생성을 완료했습니다.----')
 
     # 시간 업데이트.
-    def __update_time(self):
+    def _update_time(self):
         if self.__second >= 60:
             self.__minute += self.__second
             self.__second %= 60
@@ -119,7 +119,7 @@ class DummySensor:
             self.__update_day()
 
     # 날짜 업데이트.
-    def __update_day(self):
+    def _update_day(self):
         # 월별 일수.
         days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
@@ -155,4 +155,4 @@ if __name__ == '__main__':
     duration = int(input('측정 시간을 초 단위로 입력하시오: '))
     interval = int(input('측정 간격을 초 단위로 입력하시오: '))
 
-    ds.increment_time(duration, interval)
+    ds._increment_time(duration, interval)
