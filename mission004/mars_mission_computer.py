@@ -37,10 +37,10 @@ class MissionComputer:
             sensor.set_env(self._env_values)
             self._env_values = sensor.get_env()
 
-            print('\n----- 현재 환경 데이터 -----')
+            print("{")
             for key, value in self._env_values.items():
-                print(f'{key}: {value:.2f}')
-            print('---------------------------')
+                print(f'    "{key}": {value:.2f},')
+            print("}")
 
             # 데이터 저장
             self._data_log.append(self._env_values.copy())
@@ -72,10 +72,10 @@ class MissionComputer:
         for key in avg_values:
             avg_values[key] /= total_entries
 
-        print('\n----- 5분간 평균 환경 데이터 -----')
+        print("{")
         for key, value in avg_values.items():
-            print(f'{key}: {value:.2f}')
-        print('--------------------------------')
+            print(f'    {key}: {value:.2f}')
+        print("}")
 
     # 사용자가 특정 값(Enter)을 입력하면 반복문을 종료하는 함수.
     def _check_stop(self):
