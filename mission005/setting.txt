@@ -1,0 +1,10 @@
+[system_info]
+OS = True
+OS Version = True
+CPU Type = True
+CPU Core = True
+Memory = True
+
+[usage_info]
+CPU usage = True
+Memory usage = True
