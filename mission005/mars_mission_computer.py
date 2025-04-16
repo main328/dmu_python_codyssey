@@ -24,7 +24,7 @@ class MissionComputer:
         self._settings = self._load_settings()
 
     def _load_settings(self):
-        settings = {'system_info': {}, 'usage_info': {}}
+        settings = {section: {} for section in self._source}
         current_section = None
 
         try:
@@ -45,35 +45,29 @@ class MissionComputer:
                         settings[current_section][key] = value.lower() == 'true'
         except FileNotFoundError:
             print("설정 파일을 찾을 수 없습니다. 기본값을 모두 True로 설정합니다.")
-            for section in settings:
-                for key in self._source[section]:
-                    settings[section][key] = True
+            for section, items in self._source.items():
+                settings[section] = {key: True for key in items}
 
         return settings
 
-    def get_mission_computer_info(self):
-        info = {}
-        for key, func in self._source['system_info'].items():
-            if self._settings['system_info'].get(key, False):
+    def _extract_info_by_section(self, section_name):
+        result = {}
+        for key, func in self._source[section_name].items():
+            if self._settings[section_name].get(key, False):
                 try:
-                    info[key] = func()
+                    result[key] = func()
                 except Exception as error:
-                    info[key] = 'Unknown'
-                    print(f'ERROR: {key} 추출에 오류가 발생했습니다다: {error}')
-        return info
+                    result[key] = 'Unknown'
+                    print(f"[ERROR] {key} 항목 추출 실패: {error}")
+        return result
+
+    def get_mission_computer_info(self):
+        return self._extract_info_by_section('system_info')
 
     def get_mission_computer_load(self):
-        load = {}
-        for key, func in self._source['usage_info'].items():
-            if self._settings['usage_info'].get(key, False):
-                try:
-                    load[key] = func()
-                except Exception as error:
-                    load[key] = 'Unknown'
-                    print(f'ERROR: {key} 추출에 오류가 발생했습니다: {error}')
-        return load
+        return self._extract_info_by_section('usage_info')
 
-    def print_json(self, data, indent=4):
+    def format_as_json(self, data, indent=4):
         json_str = "{\n"
         for i, (key, value) in enumerate(data.items()):
             # 문자열은 큰따옴표로 감싸고, 숫자는 그대로 표시
@@ -82,10 +76,14 @@ class MissionComputer:
             json_str += " " * indent + f'"{key}": {value_str}{comma}\n'
         json_str += "}"
         return json_str
-        
+
 if __name__ == '__main__':
     run_computer = MissionComputer(FILE_PATH)
     info = run_computer.get_mission_computer_info()
     load = run_computer.get_mission_computer_load()
-    print(run_computer.print_json(info))
-    print(run_computer.print_json(load))
+
+    print("=== System Info ===")
+    print(run_computer.format_as_json(info))
+
+    print("\n=== Usage Info ===")
+    print(run_computer.format_as_json(load))
