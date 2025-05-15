@@ -415,14 +415,3 @@ if __name__ == '__main__':
     app = QApplication([])
     calc_ui = Calculator()
     app.exec_()
-         
-if __name__ == '__main__':
-    # 현재 로케일 설정 (콤마가 제대로 표시되도록)
-    try:
-        locale.setlocale(locale.LC_ALL, '')
-    except locale.Error:
-        locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
-
-    app = QApplication([])
-    calc_ui = Calculator()
-    app.exec_()
