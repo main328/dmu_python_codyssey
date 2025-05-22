@@ -1,107 +1,71 @@
-import zipfile
-import multiprocessing
 import time
-import ctypes
+import zipfile
 import io
-from itertools import permutations
+from multiprocessing import Pool, current_process
 
-zip_path = 'mission008/file/emergency_storage_key.zip'
-PASSWORD_LENGTH = 6
-CHARSET = "etaoinshrdlucmfwypvbgkqjxz0123456789"
-NUM_PROCESSES = multiprocessing.cpu_count()
+# 전역 변수 설정
+charset = 'abcdefghijklmnopqrstuvwxyz0123456789'
+re_charset = '9876543210zyxwvutsrqponmlkjihgfedcba'
+#zip_file = 'aaa.zip'
+zip_file = 'mission008/file/emergency_storage_key.zip'
 
-found_event = multiprocessing.Event()
-found_password = multiprocessing.Array(ctypes.c_char, PASSWORD_LENGTH + 1, lock=multiprocessing.Lock())
-start_time = 0
-end_time = 0
+def try_password(args):
+    """각 프로세스가 시도할 비밀번호 조합"""
+    c1, start_time = args
 
-def crack_process(process_id, password_queue, zip_memory_data):
-    try:
-        zip_memory = io.BytesIO(zip_memory_data)
-        while not found_event.is_set():
-            try:
-                password_tuple = password_queue.get(timeout=0.1)
-                password = "".join(password_tuple)
-                with zipfile.ZipFile(zip_memory) as zip_file:
-                    try:
-                        zip_file.extractall(pwd=password.encode())
-                        if not found_event.is_set():
-                            with found_password.get_lock():
-                                if not found_password[:] and not found_event.is_set():
-                                    encoded_password = password.encode()
-                                    found_password[:PASSWORD_LENGTH] = encoded_password
-                                    found_event.set()
-                                    global end_time
-                                    end_time = time.time()
-                                    print(f"[Process-{process_id}] 비밀번호 발견: {password}")
-                        return
-                    except:
-                        pass
-                password_queue.task_done()
-            except multiprocessing.queues.Empty:
-                continue
-    except zipfile.BadZipFile as e:
-        print(f"[Process-{process_id}] ZIP 파일 오류: {e}")
-    except Exception as e:
-        print(f"[Process-{process_id}] 프로세스 오류: {e}")
-    finally:
-        print(f"[Process-{process_id}] 종료")
+    # 현재 process ID 출력
+    print(f'process({current_process().pid}) start with {c1}')
 
-def generate_password_queue(charset, length):
-    password_queue = multiprocessing.Queue()
-    for p in permutations(charset, length):
-        password_queue.put(p)
-    return password_queue
+    # ZIP 파일을 메모리로 로딩
+    with open(zip_file, 'rb') as f:
+        zip_data = io.BytesIO(f.read())
 
-def main():
-    global start_time, end_time
+    # ZIP 파일 열기
+    zf = zipfile.ZipFile(zip_data, 'r')
+
+    # 압축 파일 이름 목록(첫 번쨰 파일 이름) 
+    fname = zf.namelist()[0]
+
+    # 6자리 비밀번호 시도
+    for c2 in charset:
+        for c3 in charset:
+            for c4 in charset:
+                for c5 in re_charset:
+                    for c6 in re_charset:
+                        password = f"{c1}{c2}{c3}{c4}{c5}{c6}"
+                        try:
+                            # 파일 열기 시도
+                            with zf.open(fname, 'r', pwd=password.encode()) as file:
+                                file.read(1)  # 파일이 정상인지 최소 1바이트 읽기
+                                print(f"정답 찾음: {password}")
+
+                                # 찾은 password를 password.txt에 저장장
+                                with open("password.txt", "w") as f:
+                                    f.write(password)
+
+                                print(f"총 소요 시간: {time.time() - start_time}")
+                                return password
+                        except :
+                            continue
+    return None
+
+
+def unlock_zip():
+    # 시작 시간 측정
     start_time = time.time()
-    zip_memory_data = None
+    print('시작 시간:', start_time)
 
-    try:
-        with open(zip_path, 'rb') as f:
-            zip_memory_data = f.read()
-    except FileNotFoundError:
-        print(f"Error: 파일 '{zip_path}'를 찾을 수 없습니다.")
-        return
+    # 멀티프로세싱 Pool 생성, 시스템 CPU cor 수 만큼 프로세스 생성성
+    with Pool() as pool:
+        # charset의 첫 번째 문자 기준으로 멀티프로세싱 분배
+        tasks = [(c, start_time) for c in charset]
+        results  = pool.map(try_password, tasks)
+        print('---', results)
 
-    password_queue = generate_password_queue(CHARSET, PASSWORD_LENGTH)
-    num_passwords = len(CHARSET)
-    factorial_length = 1
-    for i in range(PASSWORD_LENGTH):
-        factorial_length *= (num_passwords - i)
-    print(f"생성된 총 비밀번호 개수 (중복 없음): {factorial_length:,}")
+    print('최종 종료 시간:', time.time())
+    print('총 소요 시간:', time.time() - start_time)
+    return None
 
-    processes = []
-    for i in range(NUM_PROCESSES):
-        process = multiprocessing.Process(target=crack_process, args=(i + 1, password_queue, zip_memory_data))
-        processes.append(process)
-        process.start()
-
-    # 모든 작업이 큐에서 완료될 때까지 대기
-    password_queue.join()
-
-    # 비밀번호가 발견되지 않았으면 이벤트 설정 (혹시 worker가 모두 종료되었지만 찾지 못한 경우)
-    if not found_event.is_set():
-        found_event.set()
-
-    for process in processes:
-        process.join()
-
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-
-    if found_event.is_set():
-        with found_password.get_lock():
-            if found_password[:]:
-                print(f"\n최종 비밀번호: {found_password[:].decode()}")
-                print(f"소요 시간: {elapsed_time:.2f} 초")
-            else:
-                print("\n비밀번호를 찾지 못했습니다.")
-                print(f"총 소요 시간: {elapsed_time:.2f} 초")
-    else:
-        print("\n비밀번호를 찾지 못했습니다.")
-        print(f"총 소요 시간: {elapsed_time:.2f} 초")
 
 if __name__ == "__main__":
-    main()
+    unlock_zip()
