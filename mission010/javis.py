@@ -42,7 +42,7 @@ class Javis:
         '''
         # 음성 파일 이름 생성.2
         
-        audio_name = f'{datetime.now().strftime('%Y%m%d_%H%M%S')}.wav'
+        audio_name = f'{datetime.now().strftime('%Y%m%d-%H%M%S')}.wav'
         # write 함수를 사용하여 WAV 파일로 저장.
         write(
             filename=f'{RECORD_PATH}/{audio_name}', # 저장할 음성 파일의 이름.
