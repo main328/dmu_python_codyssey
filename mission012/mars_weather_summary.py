@@ -1,4 +1,5 @@
 import mysql.connector
+from datetime import datetime
 
 # MySQL 연결 및 Query 실행을 수행하는 Helper 클래스.
 class MySQLHelper():
@@ -11,6 +12,12 @@ class MySQLHelper():
         self._password = password
         self._database = database
         self._connection = None
+        # 데이터 타입.
+        self._type_convertor = {
+            'str': str,
+            'int': lambda n: int(float(n)),
+            'datetime': lambda x: datetime.strptime(x, '%Y-%m-%d').strftime('%Y-%m-%d')
+        }
 
     # DB 연결 상태를 확인하는 함수.
     def _check_connect_db(self):
@@ -67,7 +74,7 @@ class MySQLHelper():
                 print(f'connect_db: DB "{self._database}"가 존재하지 않습니다.')
                 print('connect_db: DB 생성 시도 중...')
                 # DB 생성 시도.
-                if self._create_db(connection_args):
+                if self._create_db():
                     print(f'connect_db: DB "{self._database}" 생성에 성공했습니다.')
                     # 생성된 DB로 연결 재시도.
                     return self._reconnect_db(connection_args)
@@ -85,7 +92,7 @@ class MySQLHelper():
     def _create_db(self):
         '''
         Args:
-            None.
+            connection_args: 
         Returns:
             bool: DB 생성에 성공 유무를 bool로 반환.
         '''
@@ -104,12 +111,13 @@ class MySQLHelper():
             # DB 연결 상태 확인.
             if temp_connect.is_connected():
                 cursor = temp_connect.cursor()
-                create_db_query = f'CREATE DATABASE IF NOT EXISTS {connection_args['database']};'
+                create_db_query = f'CREATE DATABASE IF NOT EXISTS {self._database};'
                 # Query 실행 및 반영.
                 cursor.execute(create_db_query)
                 temp_connect.commit()
                 cursor.close()
                 # DB 생성 성공 시 True 반환.
+                print(f'_create_db: MySQL 내 "{self._database}" 생성에 성공했습니다.')
                 return True
             else:
                 print('_create_db: MySQL Server 연결에 실패했습니다.')
@@ -248,10 +256,67 @@ class MySQLHelper():
         '''
         # 지정된 테이블의 정보 수집.
         table_info = self._extract_table_info(table_name)
-        csv_info = []
+        if not table_info:
+            print(f'extract_csv_info: "{table_name}"의 테이블의 정보를 추출하지 못했습니다.')
+            return []
         
-        print(f'extract_csv_info: {table_info}')
-        print(f'extract_csv_info: {csv_info}')
+        # INSERT문 구성을 위한 컬럼명 추출.
+        column_names = [info[0] for info in table_info]
+        # Query의 Placeholder 문자열 생성.
+        placeholders = ', '.join(['%s']*len(column_names))
+        # INSERT문과 매개변수 리스트.
+        insert_statements = []
+        # INSER문 생성.
+        insert_value_query = f'INSERT INTO {table_name} ({', '.join(column_names)}) VALUES ({placeholders})'
+
+        try:
+            with open(csv_path, 'r', encoding='utf-8') as csv_file:
+                # CSV 파일의 헤더 확인.
+                header_line = csv_file.readline().strip().split(',')
+
+                # 헤더 리스트와 컬럼 리스트 일치 확인.
+                if len(header_line) != len(column_names):
+                    print(f'extract_csv_info: 헤더와 컬럼이 일치하지 않습니다.\n{header_line}\n{column_names}')
+                    return []
+                
+                # 헤더 이름과 컬럼 이름 일치 확인.
+                for i, column in enumerate(column_names):
+                    if header_line[i] != column:
+                        print(f'extract_csv_info: 헤더 이름과 컬럼 이름이 일치하지 않습니다.\n{header_line[i]} | {column}')
+                        return []
+                
+                # 바디 영역을 진행.
+                for index, line in enumerate(csv_file):
+                    # 비어있는 행 제외.
+                    if not line.strip():
+                        continue
+                    row_data = [data.strip() for data in line.strip().split(',')]
+                    
+                    processed_row = []
+                    for i, (name, type) in enumerate(table_info):
+                        csv_vlaue = row_data[i]
+                        try:
+                            # self._type_convertor로 데이터 타입 변환 함수 호출.
+                            convertor = self._type_convertor.get(type)
+                            processed_row.append(convertor(csv_vlaue))
+                        except ValueError as error:
+                            print(f'extract_csv_info: 데이터 타입 변한 중 오류가 발생했습니다: {error}\n{index+1}행: {name}컬럼: {csv_vlaue}')
+                            processed_row = None
+                            break
+                        except IndexError as error:
+                            print(f'extract_csv_info: 데이터 접근 중 인덱스 오류가 발생했습니다: {error}\n{index+1}행: {name}컬럼: {csv_vlaue}')
+                            processed_row = None
+                            break
+                    # 데이터 타입 변환 중 오류 발생 시 다음 행 진행.
+                    if processed_row is None:
+                        continue
+                    
+                    # INSERT문과 매개변수를 리스트에 저장.
+                    insert_statements.append((insert_value_query, tuple(processed_row)))
+                
+                return insert_statements
+        except Exception as error:
+            print(f'extract_csv_info: 알 수 없는 오류가 발생했습니다: {error}')
 
     # Query 실행 및 결과를 반환하는 함수.
     def execute_query(self, query, parms = None):
@@ -316,10 +381,16 @@ def main():
             else:
                 print('Query 실행에 실패했습니다.')
         
-        csv_path = 'mission/csv/mars_weathers_data.csv'
+        csv_path = 'mission012/csv/mars_weathers_data.csv'
         # csv 파일 조회.
-        sql_helper.extract_csv_info(csv_path, table_name)
-    
+        csv_value = sql_helper.extract_csv_info(csv_path, table_name)
+        # INSERT Query 실행 및 성공 유무 확인.
+        for query, parm in csv_value:
+            if sql_helper.execute_query(query, parm):
+                print('Query 실행에 성공했습니다.')
+            else:
+                print('Query 실행에 실패했습니다.')
+            
     # DB 연결 종료.
     sql_helper.disconnect_db()
 
