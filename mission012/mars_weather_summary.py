@@ -23,10 +23,8 @@ class MySQLHelper():
     def _check_connect_db(self):
         # DB 연결 상태 확인.
         if self._connection and self._connection.is_connected():
-            print('_check_connect_db: 이미 연결된 상태입니다.')
             return True
         else:
-            print('_check_connect_db: DB 연결이 필요합니다.')
             return False
 
     # DB 연결을 수행하는 함수.
@@ -38,55 +36,57 @@ class MySQLHelper():
             bool: 연결 상태에 따른 실행 유무를 Boolean 반환.
         '''
         # DB 연결 상태 확인.
-        self._check_connect_db()
-        
-        try:
-            # MySQL Server 연결을 위한 매개변수 Dict.
-            connection_args = {
-                'host': self._host,
-                'user': self._user,
-                'password': self._password
-            }
-            # 사용하고자 하는 DB 이름이 지정된 경우 Dict args 수정.
-            if self._database:
-                connection_args['database'] = self._database
-            
-            # Unpacking connection_args.
-            self._connection = mysql.connector.connect(**connection_args)
-            
-            # DB 연결 상태 확인.
-            if self._connection.is_connected():
-                # MySQL Server 및 DB 모두 연결되었을 경우,
+        if self._check_connect_db():
+            print('_check_connect_db: 이미 연결된 상태입니다.')
+            return True
+        else:
+            try:
+                # MySQL Server 연결을 위한 매개변수 Dict.
+                connection_args = {
+                    'host': self._host,
+                    'user': self._user,
+                    'password': self._password
+                }
+                # 사용하고자 하는 DB 이름이 지정된 경우 Dict args 수정.
                 if self._database:
-                    print(f'connect_db: MySQL Server의 "{self._database}" DB에 성공적으로 연결되었습니다.')
-                # MySQL Server만 연결되었을 경우,
+                    connection_args['database'] = self._database
+                
+                # Unpacking connection_args.
+                self._connection = mysql.connector.connect(**connection_args)
+                
+                # DB 연결 상태 확인.
+                if self._connection.is_connected():
+                    # MySQL Server 및 DB 모두 연결되었을 경우,
+                    if self._database:
+                        print(f'connect_db: MySQL Server의 "{self._database}" DB에 성공적으로 연결되었습니다.')
+                    # MySQL Server만 연결되었을 경우,
+                    else:
+                        print('connect_db: MySQL Server에 성공적으로 연결되었습니다.')
+                    # 연결 성공 시 True 반환.
+                    return True
                 else:
-                    print('connect_db: MySQL Server에 성공적으로 연결되었습니다.')
-                # 연결 성공 시 True 반환.
-                return True
-            else:
-                print('connect_db: MySQL Server에 연결되었지만 활성화되지 않았습니다.')
-                self._connection = None # 초기화.
-                return False
-        except mysql.connector.Error as error:
-            # ERROR 1049는 'ER_BAD_DB_ERROR'.
-            if self._database and error.errno == 1049:
-                print(f'connect_db: DB "{self._database}"가 존재하지 않습니다.')
-                print('connect_db: DB 생성 시도 중...')
-                # DB 생성 시도.
-                if self._create_db():
-                    print(f'connect_db: DB "{self._database}" 생성에 성공했습니다.')
-                    # 생성된 DB로 연결 재시도.
-                    return self._reconnect_db(connection_args)
+                    print('connect_db: MySQL Server에 연결되었지만 활성화되지 않았습니다.')
+                    self._connection = None # 초기화.
+                    return False
+            except mysql.connector.Error as error:
+                # ERROR 1049는 'ER_BAD_DB_ERROR'.
+                if self._database and error.errno == 1049:
+                    print(f'connect_db: DB "{self._database}"가 존재하지 않습니다.')
+                    print('connect_db: DB 생성 시도 중...')
+                    # DB 생성 시도.
+                    if self._create_db():
+                        print(f'connect_db: DB "{self._database}" 생성에 성공했습니다.')
+                        # 생성된 DB로 연결 재시도.
+                        return self._reconnect_db(connection_args)
+                    else:
+                        print(f'connect_db: DB "{self._database}" 생성에 실패했습니다.')
+                        self._connection = None
+                        return False
+                # 다른 종류의 오류 발생.
                 else:
-                    print(f'connect_db: DB "{self._database}" 생성에 실패했습니다.')
+                    print(f'connect_db: DB 연결에 오류가 발생했습니다: {error}')
                     self._connection = None
                     return False
-            # 다른 종류의 오류 발생.
-            else:
-                print(f'connect_db: DB 연결에 오류가 발생했습니다: {error}')
-                self._connection = None
-                return False
 
     # 지정된 이름으로 DB를 생성하는 함수.
     def _create_db(self):
@@ -178,34 +178,35 @@ class MySQLHelper():
             bool: 테이블의 존재 유무를 Boolean으로 반환.
         '''
         # DB 연결 확인.
-        self._check_connect_db()
-        
-        cursor = None
-        
-        try:
-            cursor = self._connection.cursor()
-            # information_schema.talbes를 사용하여 테이블의 존재 유무 확인.
-            check_query = '''
-            SELECT EXISTS (
-                SELECT 1
-                FROM information_schema.tables
-                WHERE table_schema = %s
-                AND table_name = %s
-            ) AS table_exists;
-            '''
-            cursor.execute(check_query, (self._database, table_name))
-            result = cursor.fetchone()
-            if result and result[0] == 1:
-                print(f'check_table: DB 내 "{table_name}" 테이블이 존재합니다.')
-                return True
-            print(f'check_table: DB 내 "{table_name}" 테이블이 존재하지 않습니다.')
+        if self._check_connect_db():
+            cursor = None
+            
+            try:
+                cursor = self._connection.cursor()
+                # information_schema.talbes를 사용하여 테이블의 존재 유무 확인.
+                check_query = '''
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = %s
+                    AND table_name = %s
+                ) AS table_exists;
+                '''
+                cursor.execute(check_query, (self._database, table_name))
+                result = cursor.fetchone()
+                if result and result[0] == 1:
+                    print(f'check_table: DB 내 "{table_name}" 테이블이 존재합니다.')
+                    return True
+                print(f'check_table: DB 내 "{table_name}" 테이블이 존재하지 않습니다.')
+                return False
+            except mysql.connector.Error as error:
+                print(f'check_table: DB의 테이블 확인 중 오류가 발생했습니다: {error}')
+                return False
+            finally:
+                if cursor:
+                    cursor.close()
+        else:
             return False
-        except mysql.connector.Error as error:
-            print(f'check_table: DB의 테이블 확인 중 오류가 발생했습니다: {error}')
-            return False
-        finally:
-            if cursor:
-                cursor.close()
 
     # 테이블의 컬럼명과 데이터 타입을 추출하는 함수.
     def _extract_table_info(self, table_name):
@@ -216,34 +217,35 @@ class MySQLHelper():
             list: 테이블의 컬럼명과 데이터 타입이 기록된 튜플 리스트.
         '''
         # DB 연결 상태 확인.
-        self._check_connect_db()
-        
-        cursor = None
-        table_info = []
-        
-        try:
-            cursor = self._connection.cursor()
-            # information_schema.columns를 사용하여 테이블 조회.
-            query = '''
-            SELECT COLUMN_NAME, DATA_TYPE
-            FROM information_schema.columns
-            WHERE table_schema = %s
-            AND table_name = %s
-            ORDER BY ORDINAL_POSITION;
-            '''
-            cursor.execute(query, (self._database, table_name))
+        if self._check_connect_db():
+            cursor = None
+            table_info = []
             
-            # 결과의 각 행에서 컬럼명과 데이터 타입 추출.
-            for row in cursor.fetchall():
-                table_info.append((row[0], row[1]))
-            # 추출한 튜플 리스트 반환.
-            return table_info
-        except mysql.connector.Error as error:
-            print(f'"{table_name}" 테이블의 정보 추출 중 오류가 발생했습니다: {error}')
-            return []
-        finally:
-            if cursor:
-                cursor.close()
+            try:
+                cursor = self._connection.cursor()
+                # information_schema.columns를 사용하여 테이블 조회.
+                query = '''
+                SELECT COLUMN_NAME, DATA_TYPE
+                FROM information_schema.columns
+                WHERE table_schema = %s
+                AND table_name = %s
+                ORDER BY ORDINAL_POSITION;
+                '''
+                cursor.execute(query, (self._database, table_name))
+                
+                # 결과의 각 행에서 컬럼명과 데이터 타입 추출.
+                for row in cursor.fetchall():
+                    table_info.append((row[0], row[1]))
+                # 추출한 튜플 리스트 반환.
+                return table_info
+            except mysql.connector.Error as error:
+                print(f'"{table_name}" 테이블의 정보 추출 중 오류가 발생했습니다: {error}')
+                return []
+            finally:
+                if cursor:
+                    cursor.close()
+        else:
+            return False
 
     # csv 파일을 읽고, 지정한 테이블에 저장하는 함수.
     def extract_csv_info(self, csv_path, table_name):
@@ -328,24 +330,23 @@ class MySQLHelper():
             bool: Query 실행의 성공 유무를 Boolean으로 반환.
         '''
         # DB 연결 확인.
-        self._check_connect_db()
-        
-        cursor = None
-        
-        try:
-            cursor = self._connection.cursor()
-            cursor.execute(query, parms or ())
-            self._connection.commit()
-            print(f'execute_query: Query 실행에 성공했습니다.\n{query}')
-            return True
-        except mysql.connector.Error as error:
-            print(f'execute_query: Query 실행 중 오류가 발생했습니다: {error}\n{query}')
-            if self._connection:
-                self._connection.rollback()
-            return False
-        finally:
-            if cursor:
-                cursor.close()
+        if self._check_connect_db():
+            cursor = None
+            
+            try:
+                cursor = self._connection.cursor()
+                cursor.execute(query, parms or ())
+                self._connection.commit()
+                print(f'execute_query: Query 실행에 성공했습니다.\n{query}')
+                return True
+            except mysql.connector.Error as error:
+                print(f'execute_query: Query 실행 중 오류가 발생했습니다: {error}\n{query}')
+                if self._connection:
+                    self._connection.rollback()
+                return False
+            finally:
+                if cursor:
+                    cursor.close()
 
 # 실행 함수.
 def main():
