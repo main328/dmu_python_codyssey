@@ -3,7 +3,6 @@
 
 import http.server
 import socket # http.client 대신 socket을 직접 임포트합니다.
-from datetime import datetime
 # json 모듈을 더 이상 사용하지 않으므로 import 문을 제거합니다.
 
 # 서버의 기본 설정을 정의합니다.
