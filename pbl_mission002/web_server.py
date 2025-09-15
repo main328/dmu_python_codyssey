@@ -13,8 +13,9 @@ PORT = 8080
 class WebServer(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         """ GET 요청을 처리합니다. """
-        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        client_address = self.client_address[0]
+        current_time = self.date_time_string()
+        # client_address = self.client_address[0]
+        client_address = '223.38.86.119'
         accept_language = self.headers.get('Accept-Language', '정보 없음')
 
         print(f'--- 클라이언트 접속 정보 ---')
